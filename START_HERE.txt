@@ -1,0 +1,141 @@
+CATALOGIQ: SIMPLE START GUIDE
+=============================
+
+This folder contains a small website that compares example vendor products.
+It is a demonstration: it does not use live prices and it cannot place orders.
+The website sends questions to the AI service configured by the person who
+set up this folder. Do not type private or sensitive information into it.
+
+
+START IT ON THIS COMPUTER
+-------------------------
+
+1. Install Python
+
+   If Python is not already on this computer, ask the person who manages it
+   to install Python 3.10 or newer from https://www.python.org/downloads/.
+   During installation, select "Add python.exe to PATH" if that option appears.
+
+2. Open a command window in this folder
+
+   Open the "Updated Catalogiq-agent" folder in File Explorer. Click the
+   address bar at the top, type:
+
+       powershell
+
+   Then press Enter. A PowerShell window should open in this folder.
+
+3. Prepare the app (the first time only)
+
+   Copy and run these two lines, one at a time:
+
+       py -m venv .venv
+       .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+   Wait for each line to finish. This may take a few minutes and requires
+   an internet connection.
+
+4. Add the private AI service settings (the first time only)
+
+   In the same PowerShell window, type:
+
+       notepad .env
+
+   If asked whether to create the file, choose Yes. Ask the person who
+   provided your AI service for the correct endpoint and private API key.
+   Put those two values in Notepad in this format:
+
+       NRP_BASE_URL=the-endpoint-you-were-given
+       NRP_API_KEY=the-private-key-you-were-given
+
+   Replace the example words with the real values you were given. Save and
+   close Notepad. Never send this file, post its contents online, or include
+   it in an email or screenshot. The app folder is set up to keep this file
+   out of Git, but anyone with access to this computer account may still be
+   able to read it.
+
+   If you were not given an endpoint and key, ask the person responsible for
+   the AI service. Do not guess or make up these values.
+
+5. Start the website
+
+   In PowerShell, run:
+
+       $env:CATALOGIQ_HOST = "127.0.0.1"
+       $env:CATALOGIQ_PORT = "5001"
+       .\.venv\Scripts\python.exe app.py
+
+   Leave this window open while you use the website. Open a web browser and
+   visit:
+
+       http://127.0.0.1:5001
+
+   Pick one of the sample buttons, or type a question and choose "Ask
+   CatalogIQ". The available sample categories are holiday string lights,
+   restaurant nitrile gloves, and brake pads.
+
+6. Stop the website
+
+   Click the PowerShell window and press Ctrl+C. You can close the window
+   after the app stops.
+
+   The next time you want to use CatalogIQ, repeat step 5. You do not need
+   to repeat steps 3 or 4 unless the setup or private key changes.
+
+
+LET PEOPLE ON YOUR PRIVATE WI-FI USE IT
+---------------------------------------
+
+Only do this on a private, trusted home or office network. The app has no
+sign-in screen and uses ordinary (not encrypted) local network traffic.
+Anyone on that network who can reach the app may submit questions using the
+configured AI account. This may use that account's quota or incur charges.
+Do not use this option on public Wi-Fi, and do not enter sensitive information.
+
+1. If CatalogIQ is running, stop it by pressing Ctrl+C in its PowerShell
+   window.
+2. In that same window, run these lines:
+
+       $env:CATALOGIQ_HOST = "0.0.0.0"
+       $env:CATALOGIQ_PORT = "5001"
+       .\.venv\Scripts\python.exe app.py
+
+   Leave this window open. The app is now available to devices on the
+   network; the private API key stays on the computer running the app.
+3. On the computer running CatalogIQ, open a second PowerShell window and
+   type:
+
+       ipconfig
+
+   Under the network connection currently in use (usually Wi-Fi), find
+   "IPv4 Address". It looks like four groups of numbers, for example
+   192.168.1.25. Use the actual number shown on your computer.
+4. On another device connected to the same trusted Wi-Fi, open a browser and
+   visit this address, replacing the example number with your actual one:
+
+       http://192.168.1.25:5001
+
+5. If Windows asks about allowing Python through the firewall, allow it only
+   on private networks, and only if you intend to share the app on that
+   trusted network.
+
+Press Ctrl+C in the app's PowerShell window when you want to stop sharing it.
+The address may change when the computer reconnects to the network.
+
+Do not open a port on your router or expose this app directly to the public
+internet. Sharing it with people outside your private network requires a
+properly secured website service with sign-in and encrypted connections;
+ask your IT support person for help.
+
+
+KEEP THE PRIVATE KEY SAFE
+-------------------------
+
+The private key is in the .env file on the computer running CatalogIQ. Do not
+copy it into questions, screenshots, messages, or this guide. Anyone who gets
+the key may be able to use the AI account. If you think it was exposed, ask
+the AI service owner to replace it.
+
+CatalogIQ sends each question to the AI service configured for it. Use only
+the sample product information, and do not enter customer names, payment
+details, passwords, confidential business information, or other private data.

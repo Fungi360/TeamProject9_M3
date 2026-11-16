@@ -67,6 +67,10 @@ Procurement guidance lives in Markdown files under `knowledge/` (one per categor
 
 ## Setup and run
 
+For a step-by-step Windows guide intended for nontechnical users, see
+[START_HERE.txt](START_HERE.txt). It includes instructions for trusted private
+Wi-Fi sharing and explains how to protect the API key.
+
 1. Install Python 3.10 or newer.
 2. Create a virtual environment and activate it.
 3. Create `.env` beside this README:
@@ -78,7 +82,7 @@ NRP_API_KEY=your-api-key
 
 4. Install dependencies:
 
-```bash
+```powershell
 python -m pip install -r requirements.txt
 ```
 
@@ -90,11 +94,19 @@ python vendor_catalog_agent.py "Compare holiday string lights across the vendors
 
 6. Optionally run the dependency-free browser front end:
 
-```bash
+```powershell
+$env:CATALOGIQ_HOST = "127.0.0.1"
+$env:CATALOGIQ_PORT = "5001"
 python app.py
 ```
 
-Open `http://127.0.0.1:5000` and enter a catalog comparison question. `app.py` uses Python's standard library and calls the existing `ask_agent` function; it does not modify the MCP server or agent backend. Stop the server with `Ctrl+C`.
+Open `http://127.0.0.1:5001` and enter a catalog comparison question. The front end formats Markdown responses and presents table data as stacked comparison cards. It calls the existing `ask_agent` function and does not modify the MCP server or agent backend. Stop the server with `Ctrl+C`.
+
+The browser app listens only on this computer by default. To make it reachable
+on a trusted private network, set `CATALOGIQ_HOST=0.0.0.0` before starting
+`app.py`; its default port is 5001. This app has no sign-in or
+encrypted network transport; do not expose it to the public internet. Anyone
+able to reach it can submit questions that use the configured AI account.
 
 7. Run tests without an API key:
 
@@ -168,7 +180,8 @@ The 10 end-to-end evaluation cases for M4 are in `eval/m3_eval_cases.json`.
 
 ## Files
 
-- `app.py`: Optional dependency-free browser front end that calls the existing agent.
+- `app.py`: Optional dependency-free browser front end that calls the existing agent and formats responses.
+- `test_app.py`: Browser front-end tests for response formatting, escaping, and safe error messages.
 - `catalog_mcp_server.py`: FastMCP server with catalog, knowledge-retrieval, and sequential-reasoning tools, plus category aliases.
 - `knowledge_base.py`: TF-IDF vector index and cosine-similarity retrieval over `knowledge/`.
 - `knowledge/`: procurement guidance documents (the RAG corpus).
