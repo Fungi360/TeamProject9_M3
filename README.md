@@ -36,6 +36,19 @@ Procurement guidance lives in Markdown files under `knowledge/` (one per categor
 
 ## CHANGES
 
+### User testing changes (Nov 18, 2026)
+
+Changes from user testing feedback (Scott Kelly and Justin Schepke):
+
+- **One-line hook and simpler landing page.** Testers said the page had too many words and did not say what the tool does. The header is now one sentence, modeled on CamelCamelCamel's one-line value prop, and the extra intro box was removed.
+- **Clear example questions up front.** New users did not know what they could ask. The page now says which three products are covered, and the example buttons (with icons) sit above the question box.
+- **Two links per vendor: product page and reviews.** Answers now end with a "Shop these options" section. The links are built from catalog data in code, not by the model, so they cannot be invented.
+- **Affiliate links.** The sample vendors have no affiliate programs, so links go to the Amazon equivalent. Set `AMAZON_ASSOCIATE_TAG` in `.env` to turn them into Amazon Associates links. Testers suggested affiliate revenue as a way to lower the $49/month price.
+- **Spelling tolerance.** Close misspellings such as "resturant gloves" or "brake pdas" now match the right category. Unrelated items such as "Christmas tree" still return a clear "no catalog" message, now with example questions.
+- **Added `test_feedback_changes.py`** (8 tests) for these changes.
+
+Next, from the same feedback: add electronics as the next category, show price history, and revisit pricing (testers suggested $5 to $15 per seat per month).
+
 ### M3 changes, round 2 (structured handoff, RAG, guardrails, evaluation)
 
 - **Ran the system live on NRP** and recorded the measured cost and latency under Known limitations. Updated eval case E04 to accept the reviewer's live behavior (it names the cheapest outdoor-rated vendor, SunCo Supply, as well as the highest-quality one).
@@ -78,6 +91,8 @@ Wi-Fi sharing and explains how to protect the API key.
 ```env
 NRP_BASE_URL=https://your-nrp-endpoint.example/v1
 NRP_API_KEY=your-api-key
+# Optional: turns product links into Amazon affiliate links
+AMAZON_ASSOCIATE_TAG=your-tag-20
 ```
 
 4. Install dependencies:
@@ -166,7 +181,8 @@ The 10 end-to-end evaluation cases for M4 are in `eval/m3_eval_cases.json`.
 ## Known limitations
 
 - Vendor catalogs are hard-coded sample data, not live catalogs.
-- Aliases are a fixed list; a phrasing we did not anticipate (for example "outdoor lighting") still fails.
+- Aliases are a fixed list plus close-spelling matching; a phrasing we did not anticipate (for example "outdoor lighting") still fails.
+- Product links search Amazon for the product name, so they open a results page rather than one exact listing.
 - Retrieval uses TF-IDF vectors, so it matches words, not meaning; a question with no shared words ranks chunks almost evenly. The knowledge base is 15 hand-written chunks.
 - Guardrails are pattern-based and can miss reworded order requests or flag a vendor name used in a different sense.
 - The output guardrail checks vendor names, not prices, so a wrong price for a correct vendor would pass.
