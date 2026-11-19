@@ -42,7 +42,7 @@ Procurement guidance lives in Markdown files under `knowledge/` (one per categor
 
 | Run | Code | Keyword pass rate | Output-guardrail false alarms | Total time |
 | --- | --- | --- | --- | --- |
-| M3 baseline | M3 submission (`main`, 2fca3b8) | 7/10 (70%) | 2 (E03, E09) | 16 min 47 s |
+| M3 baseline | M3 agent (`main` at 2fca3b8; the Nov 16 web app commit does not change the agent) | 7/10 (70%) | 2 (E03, E09) | 16 min 47 s |
 | M4 run 1 | user testing changes, before the Unicode fix | 7/10 (70%) | 1 (E09) | 17 min 2 s |
 | M4 final | all M4 changes | **10/10 (100%)** | **0** | 2 min 46 s |
 
@@ -50,6 +50,7 @@ Results files: `eval/results.csv` and `eval/results.md` (final), `eval/m4_run1_b
 
 Each change, why we made it, and its measured effect:
 
+- **Browser front end improvements (Jarrett, Nov 16, commit 2fca3b8).** Formats the agent's Markdown answers, shows vendor tables as stacked comparison cards, escapes raw HTML, shows a loading state while the agent works, hides internal error details (such as API keys) from users, and adds `START_HERE.txt`, a step-by-step setup guide for nontechnical users. Why: the M3 page showed raw Markdown, which made answers hard to read during demos and testing. Impact on evaluation: none, since the eval calls the agent directly; covered by 4 new tests in `test_app.py`.
 - **Unicode-safe matching in the output guardrail and eval scoring** (`guardrails.normalize_text`). Why: the model writes non-breaking hyphens ("latex‑free", "semi‑metallic") and narrow no-break spaces ("AutoParts Hub"). Plain substring checks missed them, so E02, E03, and E09 failed even though the answers were correct, and the output guardrail retried the reviewer and attached a false "Verify before acting" warning to correct answers. Impact: rescoring the same saved answers raises both earlier runs from 7/10 to 10/10, and the final live run scored 10/10 with zero guardrail retries (down from 2 in the M3 baseline).
 - **One-line hook and simpler landing page.** Why: testers said the page had too many words and did not say what the tool does (Justin: fails the grunt test; Scott: wanted a one-line value prop like CamelCamelCamel; Abby and Jonathan were confused about what the agent is for). Impact on evaluation: none, since the eval cases test the agent, not the page. This change targets the user testing problem.
 - **Clear example questions and the three covered products shown up front.** Why: every tester first tried to ask about a product outside our three categories (a Christmas tree, fabric stock, their own products). Impact on evaluation: none. E05 (unknown category) still passes, and its error now lists three example questions.
