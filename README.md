@@ -38,15 +38,17 @@ Procurement guidance lives in Markdown files under `knowledge/` (one per categor
 
 ### M4 changes (after M3 submission, Nov 16 to 18, 2026)
 
-**Evaluation summary.** We ran the 10 M3 evaluation cases live on NRP (`gpt-oss`) three times on Nov 18:
+**Evaluation summary.** We ran the 10 M3 evaluation cases live on NRP (`gpt-oss`) on Nov 18: once on the M3 agent, once on the M4 agent before the Unicode fix, and three times on the final M4 agent, because our M3 plan says a case passes only if it passes every run:
 
 | Run | Code | Keyword pass rate | Output-guardrail false alarms | Total time |
 | --- | --- | --- | --- | --- |
 | M3 baseline | M3 agent (`main` at 2fca3b8; the Nov 16 web app commit does not change the agent) | 7/10 (70%) | 2 (E03, E09) | 16 min 47 s |
 | M4 run 1 | user testing changes, before the Unicode fix | 7/10 (70%) | 1 (E09) | 17 min 2 s |
 | M4 final | all M4 changes | **10/10 (100%)** | **0** | 2 min 46 s |
+| M4 final, run B | all M4 changes | **10/10 (100%)** | **0** | 13 min 50 s |
+| M4 final, run C | all M4 changes | **10/10 (100%)** | **0** | about 6 min |
 
-Results files: `eval/results.csv` and `eval/results.md` (final), `eval/m4_run1_before_fix.csv`, and `eval/m3_baseline_results.csv`. The first two runs ran at the same time, which likely slowed both, so we do not credit the time difference to our changes. Human review of the final run rates E04 as only partly correct: it named the indoor-only vendor as the lowest-price pick before warning that it is unsuitable outdoors, instead of naming SunCo Supply as the cheapest outdoor-rated option. M4 run 1 got E04 right, so this is a run-to-run reasoning inconsistency, not a fixed bug.
+All 10 cases passed all three final runs. Results files: `eval/results.csv` and `eval/results.md` (final run A, with critic scores), `eval/results_rep2.*` and `eval/results_rep3.*` (runs B and C), `eval/critic_scores.csv`, `eval/m4_run1_before_fix.csv`, and `eval/m3_baseline_results.csv`. The first two runs ran at the same time, which likely slowed both, so we do not credit the time difference to our changes. Human review of the final run rates E04 as only partly correct: it named the indoor-only vendor as the lowest-price pick before warning that it is unsuitable outdoors, instead of naming SunCo Supply as the cheapest outdoor-rated option. Runs A, B, and C all made this mistake; only M4 run 1 got E04 right. The critic agent still scored E04 5/5 and wrongly said the answer named SunCo, so a same-model critic is too lenient to rely on alone.
 
 Each change, why we made it, and its measured effect:
 
@@ -56,6 +58,7 @@ Each change, why we made it, and its measured effect:
 - **Clear example questions and the three covered products shown up front.** Why: every tester first tried to ask about a product outside our three categories (a Christmas tree, fabric stock, their own products). Impact on evaluation: none. E05 (unknown category) still passes, and its error now lists three example questions.
 - **Two links per vendor: product page and reviews, with an optional Amazon affiliate tag.** Why: Scott and Justin asked for clickable links and suggested affiliate revenue; Abby and Jonathan said Claude is a better first option today because CatalogIQ gives no links. Links are built in code from catalog data, so the model cannot invent them. Impact on evaluation: none on pass rate; covered by 4 new unit tests.
 - **Spelling-tolerant category matching.** Why: Justin expected typos to be handled. Impact: no eval case uses a misspelling, so pass rate is unchanged; 3 new unit tests confirm that "resturant gloves" and "brake pdas" resolve correctly and that "Christmas tree" still returns no catalog.
+- **Critic-agent stage** (`eval/critic.py`). Why: planned in M3; keywords cannot tell a sound recommendation from one that names the right vendors for the wrong reason. Impact: a new measurement. It scored all six comparison cases 5/5 on groundedness and trade-off, but it missed the E04 problem, so we keep human review too.
 - **Eval runner improvements.** Per-case timing, a Markdown results table, and a human-review flag for E10. Why: M4 requires a results file with input, expected output, actual output, and pass/fail.
 
 Tests: 36 unit tests pass (`python -m pytest -q`), up from 26 at M3.
