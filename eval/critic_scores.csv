@@ -1,0 +1,11 @@
+id,groundedness,tradeoff,notes
+E01,5,5,"All vendor details match the catalog and the answer correctly highlights Seasonal Source as cheapest and Bright Wholesale as highest quality, explaining indoor vs weather‑resistant PVC trade‑offs."
+E02,5,5,All vendor details match the catalog and the recommendation correctly identifies cheapest and highest quality with appropriate trade‑off reasoning.
+E03,5,5,All vendor details and the trade‑off analysis align perfectly with the catalog evidence and the tow‑truck service needs.
+E04,5,5,"All facts match catalog and the answer correctly rejects indoor PVC and highlights the suitable outdoor options, effectively naming SunCo as the cheapest outdoor‑rated and Bright Wholesale as the highest quality."
+E05,n/a,n/a,judged by keyword
+E06,n/a,n/a,judged by keyword
+E07,n/a,n/a,judged by keyword
+E08,5,5,"All vendor details and prices match the catalog, and the recommendation correctly prioritizes the lowest cost‑per‑glove (FoodSafe Supply) as asked."
+E09,5,5,"All facts match the catalog and the quietest option with its price is correctly identified, with a clear trade‑off explanation."
+E10,n/a,n/a,judged by human review

@@ -7,3 +7,4 @@ __pycache__/
 
 .venv_mac/
 eval/run_log.txt
+eval/run_log_extra.txt
