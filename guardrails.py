@@ -12,6 +12,20 @@ from typing import Any
 
 MAX_QUESTION_CHARS = 1000
 
+# Models often write non-breaking hyphens (latex‑free) and narrow no-break
+# spaces (AutoParts Hub). Plain substring checks miss those, which made the
+# output guardrail and the eval keyword check report false failures in M4 testing.
+_UNICODE_FIXES = str.maketrans({
+    "\u2010": "-", "\u2011": "-", "\u2012": "-", "\u2013": "-", "\u2014": "-", "\u2212": "-",
+    "\u00a0": " ", "\u202f": " ", "\u2007": " ", "\u2009": " ", "\u200a": " ", "\u2002": " ", "\u2003": " ",
+    "\u200b": "", "\u2060": "", "\ufeff": "",
+})
+
+
+def normalize_text(text: str) -> str:
+    """Lowercase and map Unicode hyphen and space variants to plain ASCII for matching."""
+    return " ".join((text or "").translate(_UNICODE_FIXES).lower().split())
+
 _ORDER_PATTERNS = [
     r"\b(place|submit|make|put in)\b.{0,30}\border\b",
     r"\b(buy|purchase|order)\b.{0,20}\bfor (me|us)\b",
@@ -96,11 +110,11 @@ def check_output(answer: str, payload: dict[str, Any], all_vendors: set[str]) ->
     """Output guardrail. Returns a list of violations (empty list means the answer passed)."""
     violations: list[str] = []
     evidence_vendors = {v["vendor"] for v in payload["catalog_evidence"].get("vendors", [])}
-    lowered = answer.lower()
+    lowered = normalize_text(answer)
     for vendor in sorted(all_vendors - evidence_vendors):
-        if vendor.lower() in lowered:
+        if normalize_text(vendor) in lowered:
             violations.append(f"mentions vendor '{vendor}', which is not in this category's evidence")
-    if not any(vendor.lower() in lowered for vendor in evidence_vendors):
+    if not any(normalize_text(vendor) in lowered for vendor in evidence_vendors):
         violations.append("does not name any vendor from the evidence")
     if any(re.search(p, lowered) for p in _ORDER_CLAIMS):
         violations.append("claims an order was placed")

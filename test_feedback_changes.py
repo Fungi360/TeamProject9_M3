@@ -65,3 +65,21 @@ def test_answer_page_shows_two_links_per_vendor() -> None:
 def test_no_links_for_questions_outside_the_catalog() -> None:
     page = render_page("Best place to buy a Christmas tree?", answer="No catalog found.")
     assert 'class="product-links"' not in page
+
+
+def test_normalize_text_handles_unicode_hyphens_and_spaces() -> None:
+    from guardrails import normalize_text
+
+    assert normalize_text("Latex‑free") == "latex-free"
+    assert normalize_text("AutoParts Hub") == "autoparts hub"
+    assert normalize_text("semi‐metallic") == "semi-metallic"
+
+
+def test_output_guardrail_recognizes_vendor_with_narrow_space() -> None:
+    from catalog_mcp_server import CATALOGS, compare_vendor_catalogs
+    from guardrails import build_handoff_payload, check_output
+
+    outputs = {"compare_vendor_catalogs": compare_vendor_catalogs("brake pads")}
+    payload = build_handoff_payload("Compare brake pads", outputs, "summary")
+    all_vendors = {item["vendor"] for items in CATALOGS.values() for item in items}
+    assert check_output("**AutoParts Hub** is quietest.", payload, all_vendors) == []
