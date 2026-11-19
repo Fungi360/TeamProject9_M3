@@ -36,6 +36,35 @@ Procurement guidance lives in Markdown files under `knowledge/` (one per categor
 
 ## CHANGES
 
+### M4 changes (after M3 submission, Nov 16 to 18, 2026)
+
+**Evaluation summary.** We ran the 10 M3 evaluation cases live on NRP (`gpt-oss`) on Nov 18: once on the M3 agent, once on the M4 agent before the Unicode fix, and three times on the final M4 agent, because our M3 plan says a case passes only if it passes every run:
+
+| Run | Code | Keyword pass rate | Output-guardrail false alarms | Total time |
+| --- | --- | --- | --- | --- |
+| M3 baseline | M3 agent (`main` at 2fca3b8; the Nov 16 web app commit does not change the agent) | 7/10 (70%) | 2 (E03, E09) | 16 min 47 s |
+| M4 run 1 | user testing changes, before the Unicode fix | 7/10 (70%) | 1 (E09) | 17 min 2 s |
+| M4 final | all M4 changes | **10/10 (100%)** | **0** | 2 min 46 s |
+| M4 final, run B | all M4 changes | **10/10 (100%)** | **0** | 13 min 50 s |
+| M4 final, run C | all M4 changes | **10/10 (100%)** | **0** | about 6 min |
+
+All 10 cases passed all three final runs. Results files: `eval/results.csv` and `eval/results.md` (final run A, with critic scores), `eval/results_rep2.*` and `eval/results_rep3.*` (runs B and C), `eval/critic_scores.csv`, `eval/m4_run1_before_fix.csv`, and `eval/m3_baseline_results.csv`. The first two runs ran at the same time, which likely slowed both, so we do not credit the time difference to our changes. Human review of the final run rates E04 as only partly correct: it named the indoor-only vendor as the lowest-price pick before warning that it is unsuitable outdoors, instead of naming SunCo Supply as the cheapest outdoor-rated option. Runs A, B, and C all made this mistake; only M4 run 1 got E04 right. The critic agent still scored E04 5/5 and wrongly said the answer named SunCo, so a same-model critic is too lenient to rely on alone.
+
+Each change, why we made it, and its measured effect:
+
+- **Browser front end improvements (Jarrett, Nov 16, commit 2fca3b8).** Formats the agent's Markdown answers, shows vendor tables as stacked comparison cards, escapes raw HTML, shows a loading state while the agent works, hides internal error details (such as API keys) from users, and adds `START_HERE.txt`, a step-by-step setup guide for nontechnical users. Why: the M3 page showed raw Markdown, which made answers hard to read during demos and testing. Impact on evaluation: none, since the eval calls the agent directly; covered by 4 new tests in `test_app.py`.
+- **Unicode-safe matching in the output guardrail and eval scoring** (`guardrails.normalize_text`). Why: the model writes non-breaking hyphens ("latex‑free", "semi‑metallic") and narrow no-break spaces ("AutoParts Hub"). Plain substring checks missed them, so E02, E03, and E09 failed even though the answers were correct, and the output guardrail retried the reviewer and attached a false "Verify before acting" warning to correct answers. Impact: rescoring the same saved answers raises both earlier runs from 7/10 to 10/10, and the final live run scored 10/10 with zero guardrail retries (down from 2 in the M3 baseline).
+- **One-line hook and simpler landing page.** Why: testers said the page had too many words and did not say what the tool does (Justin: fails the grunt test; Scott: wanted a one-line value prop like CamelCamelCamel; Abby and Jonathan were confused about what the agent is for). Impact on evaluation: none, since the eval cases test the agent, not the page. This change targets the user testing problem.
+- **Clear example questions and the three covered products shown up front.** Why: every tester first tried to ask about a product outside our three categories (a Christmas tree, fabric stock, their own products). Impact on evaluation: none. E05 (unknown category) still passes, and its error now lists three example questions.
+- **Two links per vendor: product page and reviews, with an optional Amazon affiliate tag.** Why: Scott and Justin asked for clickable links and suggested affiliate revenue; Abby and Jonathan said Claude is a better first option today because CatalogIQ gives no links. Links are built in code from catalog data, so the model cannot invent them. Impact on evaluation: none on pass rate; covered by 4 new unit tests.
+- **Spelling-tolerant category matching.** Why: Justin expected typos to be handled. Impact: no eval case uses a misspelling, so pass rate is unchanged; 3 new unit tests confirm that "resturant gloves" and "brake pdas" resolve correctly and that "Christmas tree" still returns no catalog.
+- **Critic-agent stage** (`eval/critic.py`). Why: planned in M3; keywords cannot tell a sound recommendation from one that names the right vendors for the wrong reason. Impact: a new measurement. It scored all six comparison cases 5/5 on groundedness and trade-off, but it missed the E04 problem, so we keep human review too.
+- **Eval runner improvements.** Per-case timing, a Markdown results table, and a human-review flag for E10. Why: M4 requires a results file with input, expected output, actual output, and pass/fail.
+
+Tests: 36 unit tests pass (`python -m pytest -q`), up from 26 at M3.
+
+Next, from user testing: add more product categories (electronics first), show price history, and revisit pricing (testers suggested $5 to $15 per seat per month).
+
 ### M3 changes, round 2 (structured handoff, RAG, guardrails, evaluation)
 
 - **Ran the system live on NRP** and recorded the measured cost and latency under Known limitations. Updated eval case E04 to accept the reviewer's live behavior (it names the cheapest outdoor-rated vendor, SunCo Supply, as well as the highest-quality one).
@@ -78,6 +107,8 @@ Wi-Fi sharing and explains how to protect the API key.
 ```env
 NRP_BASE_URL=https://your-nrp-endpoint.example/v1
 NRP_API_KEY=your-api-key
+# Optional: turns product links into Amazon affiliate links
+AMAZON_ASSOCIATE_TAG=your-tag-20
 ```
 
 4. Install dependencies:
@@ -119,6 +150,8 @@ python -m pytest -q
 ```bash
 python eval/run_eval.py
 ```
+
+This writes `eval/results.csv` and `eval/results.md`. Pass a name to write somewhere else, for example `python eval/run_eval.py my_run`.
 
 ## Test cases
 
@@ -166,7 +199,8 @@ The 10 end-to-end evaluation cases for M4 are in `eval/m3_eval_cases.json`.
 ## Known limitations
 
 - Vendor catalogs are hard-coded sample data, not live catalogs.
-- Aliases are a fixed list; a phrasing we did not anticipate (for example "outdoor lighting") still fails.
+- Aliases are a fixed list plus close-spelling matching; a phrasing we did not anticipate (for example "outdoor lighting") still fails.
+- Product links search Amazon for the product name, so they open a results page rather than one exact listing.
 - Retrieval uses TF-IDF vectors, so it matches words, not meaning; a question with no shared words ranks chunks almost evenly. The knowledge base is 15 hand-written chunks.
 - Guardrails are pattern-based and can miss reworded order requests or flag a vendor name used in a different sense.
 - The output guardrail checks vendor names, not prices, so a wrong price for a correct vendor would pass.

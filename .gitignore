@@ -4,3 +4,7 @@
 .venv/
 __pycache__/
 .pytest_cache/
+
+.venv_mac/
+eval/run_log.txt
+eval/run_log_extra.txt

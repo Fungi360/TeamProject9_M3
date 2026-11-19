@@ -1,7 +1,10 @@
 """MCP server for comparing small-business vendor catalogs."""
 
+import difflib
 import json
+import os
 from typing import Any
+from urllib.parse import urlencode
 
 from mcp.server.fastmcp import FastMCP
 
@@ -18,15 +21,81 @@ CATEGORY_ALIASES: dict[str, str] = {
     "nitrile gloves": "restaurant nitrile gloves",
     "gloves": "restaurant nitrile gloves",
     "food service gloves": "restaurant nitrile gloves",
+    "lights": "holiday string lights",
+    "restaurant gloves": "restaurant nitrile gloves",
+    "restaurant glove": "restaurant nitrile gloves",
+    "glove": "restaurant nitrile gloves",
     "brake pad": "brake pads",
+    "brakes": "brake pads",
     "ceramic brake pads": "brake pads",
 }
 
+# Closest-match cutoff for misspelled categories (user testing feedback:
+# "it should handle spelling errors"). 0.8 accepts "brake pdas" or
+# "resturant gloves" but rejects unrelated items like "christmas tree".
+SPELLING_CUTOFF = 0.8
+
+EXAMPLE_QUESTIONS = [
+    "Which holiday string lights give me the best bang for my buck?",
+    "Where should I buy restaurant gloves, and which brand is cheapest?",
+    "Compare brake pads by price, quality, and material.",
+]
+
+
+def _known_names() -> list[str]:
+    return sorted(set(CATEGORY_ALIASES) | set(CATALOGS), key=len, reverse=True)
+
 
 def normalize_category(product_category: str) -> str:
-    """Lowercase, collapse whitespace, and map known aliases to catalog keys."""
+    """Lowercase, collapse whitespace, map aliases, and correct close misspellings."""
     category = " ".join(product_category.lower().split())
-    return CATEGORY_ALIASES.get(category, category)
+    if category in CATALOGS:
+        return category
+    if category in CATEGORY_ALIASES:
+        return CATEGORY_ALIASES[category]
+    match = difflib.get_close_matches(category, _known_names(), n=1, cutoff=SPELLING_CUTOFF)
+    if match:
+        return CATEGORY_ALIASES.get(match[0], match[0])
+    return category
+
+
+def find_category_in_text(text: str) -> str | None:
+    """Find which catalog category a free-text question is about, or None.
+
+    Checks exact names and aliases first (longest first), then tolerates
+    misspelled words by fuzzy-matching every one- to three-word phrase.
+    """
+    cleaned = " ".join("".join(c if c.isalnum() else " " for c in (text or "").lower()).split())
+    padded = f" {cleaned} "
+    for name in _known_names():
+        if f" {name} " in padded:
+            return CATEGORY_ALIASES.get(name, name)
+    words = cleaned.split()
+    for size in (3, 2, 1):
+        for start in range(len(words) - size + 1):
+            phrase = " ".join(words[start:start + size])
+            if len(phrase) < 5:
+                continue
+            match = difflib.get_close_matches(phrase, _known_names(), n=1, cutoff=SPELLING_CUTOFF)
+            if match:
+                return CATEGORY_ALIASES.get(match[0], match[0])
+    return None
+
+
+def product_links(record: dict[str, Any]) -> dict[str, str]:
+    """Build a product link and a reviews link for one catalog record.
+
+    The sample vendors have no affiliate programs, so, following user testing
+    feedback, links point to the Amazon equivalent. Set AMAZON_ASSOCIATE_TAG in
+    .env to turn them into Amazon Associates affiliate links.
+    """
+    query = {"k": record["product"]}
+    tag = os.getenv("AMAZON_ASSOCIATE_TAG", "").strip()
+    if tag:
+        query["tag"] = tag
+    product_url = "https://www.amazon.com/s?" + urlencode(query)
+    reviews_url = "https://www.amazon.com/s?" + urlencode({**query, "s": "review-rank"})
+    return {"product_url": product_url, "reviews_url": reviews_url}
 
 
 CATALOGS: dict[str, list[dict[str, Any]]] = {
@@ -103,9 +172,14 @@ def compare_vendor_catalogs(product_category: str) -> str:
     if not products:
         available = ", ".join(sorted(CATALOGS))
         return json.dumps(
-            {"error": f"No catalog found for '{product_category}'.", "available_categories": available},
+            {
+                "error": f"No catalog found for '{product_category}'.",
+                "available_categories": available,
+                "example_questions": EXAMPLE_QUESTIONS,
+            },
             indent=2,
         )
+    products = [{**item, **product_links(item)} for item in products]
 
     best_value = min(products, key=lambda item: (item["unit_price"], -item["quality_score"]))
     highest_quality = max(products, key=lambda item: item["quality_score"])

@@ -9,6 +9,7 @@ from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs
 
+from catalog_mcp_server import CATALOGS, find_category_in_text, product_links
 from vendor_catalog_agent import ask_agent
 
 
@@ -253,6 +254,41 @@ PAGE = """<!doctype html>
       margin: 0;
       overflow-wrap: anywhere;
     }
+    .hook {
+      margin: 12px 0 0;
+      font: 700 clamp(1.1rem, 3vw, 1.45rem)/1.35 Arial, sans-serif;
+    }
+    .suggestion svg {
+      width: 18px;
+      height: 18px;
+      margin-right: 6px;
+      vertical-align: -4px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .product-links {
+      margin-top: 20px;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .product-links h2 { margin: 0 0 6px; font: 700 1.15rem Arial, sans-serif; }
+    .product-links .form-help { margin-bottom: 12px; }
+    .link-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 6px 14px;
+      padding: 10px 0;
+      border-top: 1px solid #edf0f4;
+      font: 0.92rem/1.45 Arial, sans-serif;
+    }
+    .link-row strong { min-width: 160px; }
+    .link-row a { color: var(--accent); font-weight: 700; }
     .answer-content hr {
       margin: 18px 0;
       border: 0;
@@ -269,33 +305,28 @@ PAGE = """<!doctype html>
   <main>
     <header>
       <h1>CatalogIQ</h1>
-      <p class="subtitle">Get a simple side-by-side comparison of sample products by price, quality, and material.</p>
+      <p class="hook">Compare vendor prices and quality for your business in seconds.</p>
     </header>
-    <aside class="getting-started">
-      <strong>New here? Start with a sample question.</strong>
-      Choose one of the suggestions below, or type the product you want to compare and what matters to you.
-      CatalogIQ uses sample catalog data and gives advice only; it cannot place orders.
-    </aside>
     <form method="post" action="/">
-      <label for="question">What would you like to compare?</label>
-      <p id="question-help" class="form-help">For example, ask which option costs less or which has the highest quality.</p>
-      <textarea id="question" name="question" maxlength="1000" required aria-describedby="question-help" placeholder="Compare holiday string lights across the vendors.">{question}</textarea>
+      <label for="question">What do you want to compare?</label>
+      <p id="question-help" class="form-help">Right now CatalogIQ covers three products: holiday string lights, restaurant gloves, and brake pads. Tap one to try it.</p>
+      <div class="suggestions" aria-label="Sample questions">
+        <button class="suggestion" type="button" data-question="Which holiday string lights give me the best bang for my buck?"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 5c5 4 15 4 20 0"/><path d="M6 7v3"/><circle cx="6" cy="12" r="2"/><path d="M12 8v3"/><circle cx="12" cy="13" r="2"/><path d="M18 7v3"/><circle cx="18" cy="12" r="2"/></svg>Best value string lights</button>
+        <button class="suggestion" type="button" data-question="Where should I buy restaurant gloves, and which brand is cheapest?"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 21v-6l-2-4V6a1 1 0 0 1 2 0v4"/><path d="M7 10V4a1 1 0 0 1 2 0v6"/><path d="M9 10V3a1 1 0 0 1 2 0v7"/><path d="M11 10V4a1 1 0 0 1 2 0v8l2-2a1.4 1.4 0 0 1 2 2l-4 5v4"/></svg>Cheapest restaurant gloves</button>
+        <button class="suggestion" type="button" data-question="Compare brake pads by price, quality, and material."><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M5 8a8 8 0 0 1 4-4"/></svg>Brake pads by material</button>
+      </div>
+      <textarea id="question" name="question" maxlength="1000" required aria-describedby="question-help" placeholder="Example: Which restaurant gloves have the highest quality?">{question}</textarea>
       <div class="actions">
         <button id="ask-button" type="submit">
           <span class="button-content"><span class="spinner" aria-hidden="true"></span><span id="button-label">Ask CatalogIQ</span></span>
         </button>
         <span id="loading-message" class="loading-message" role="status" aria-live="polite">CatalogIQ is comparing vendor data...</span>
-        <span class="examples">Available sample categories: lights, restaurant gloves, and brake pads.</span>
       </div>
-      <div class="suggestions" aria-label="Sample questions">
-        <button class="suggestion" type="button" data-question="Compare holiday string lights across the vendors.">Holiday string lights</button>
-        <button class="suggestion" type="button" data-question="Compare restaurant nitrile gloves by price and quality.">Restaurant gloves</button>
-        <button class="suggestion" type="button" data-question="Compare brake pads by price, quality, and material.">Brake pads</button>
-      </div>
-      <p class="data-note">This demo uses example vendor data, not live prices. Do not enter private, customer, payment, or other sensitive information.</p>
+      <p class="data-note">Demo with sample vendor data, not live prices. CatalogIQ gives recommendations only and does not place orders. Do not enter private or payment information.</p>
     </form>
     {error}
     {answer}
+    {links}
   </main>
   <script>
     const form = document.querySelector("form");
@@ -334,10 +365,37 @@ def render_page(question="", answer=None, error=None):
             '<h2>Agent response</h2>'
             f'<div class="answer-content">{_render_markdown(answer)}</div></section>'
         )
+    links_html = render_product_links(question) if answer is not None else ""
     return (
         PAGE.replace("{error}", error_html)
         .replace("{answer}", answer_html)
+        .replace("{links}", links_html)
         .replace("{question}", escape(question))
+    )
+
+
+def render_product_links(question):
+    """Two links per vendor (product page and reviews), built from catalog data, not the model."""
+    category = find_category_in_text(question)
+    products = CATALOGS.get(category or "")
+    if not products:
+        return ""
+    rows = []
+    for item in products:
+        links = product_links(item)
+        rows.append(
+            '<div class="link-row">'
+            f"<strong>{escape(item['vendor'])}</strong>"
+            f"<span>{escape(item['product'])}, ${item['unit_price']:.2f} per {escape(item['pack_size'])}</span>"
+            f'<a href="{escape(links["product_url"])}" target="_blank" rel="noopener sponsored">View product</a>'
+            f'<a href="{escape(links["reviews_url"])}" target="_blank" rel="noopener sponsored">Read reviews</a>'
+            "</div>"
+        )
+    return (
+        '<section class="product-links" aria-label="Product links">'
+        "<h2>Shop these options</h2>"
+        '<p class="form-help">Links open the closest match on Amazon. CatalogIQ may earn a commission on purchases.</p>'
+        f'{"".join(rows)}</section>'
     )
 
 
